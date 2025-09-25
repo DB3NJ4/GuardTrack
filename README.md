@@ -1,4 +1,4 @@
-# 🛡️ Guardias App - Flutter
+# 🛡️ GuardTrack - Flutter
 
 Aplicación móvil desarrollada en **Flutter** para la gestión de **guardias y vueltas**. Permite registrar, visualizar y administrar turnos de guardias con filtros por fecha, opciones de vuelta y administración de guardias.
 
