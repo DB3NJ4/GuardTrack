@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Importante para el portapapeles
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -14,8 +15,55 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
+  // === COLORES DEL DISEÑO UNIFICADO ===
+  final Color primaryColor =
+      const Color.fromARGB(255, 8, 148, 187); // Celeste brillante
+  final Color secondaryColor = Colors.amber.shade700; // Ámbar
+  final Color backgroundColor = Colors.blueGrey[50]!; // Fondo Scaffold
+  final Color deleteColor = Colors.red.shade700;
+  final Color copyColor =
+      Colors.green.shade700; // Color para el ícono de copiado
+
   bool loading = false;
 
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _telefonoController.dispose();
+    super.dispose();
+  }
+
+  // === FUNCIÓN PARA COPIAR TELÉFONO ===
+  Future<void> _copiarTelefono(String telefono) async {
+    // Copia el texto al portapapeles del sistema
+    await Clipboard.setData(ClipboardData(text: telefono));
+
+    // Muestra una confirmación
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Teléfono '$telefono' copiado al portapapeles"),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // === FUNCIONES DE NAVEGACIÓN ===
+  void goToHome() {
+    // Navegación forzada al home
+    Navigator.pushReplacementNamed(context, '/home');
+  }
+
+  void goToAgregarVuelta() {
+    Navigator.pop(context);
+    Navigator.pushReplacementNamed(context, '/agregarVuelta');
+  }
+
+  void goToHistorial() {
+    Navigator.pop(context);
+    Navigator.pushReplacementNamed(context, '/historial');
+  }
+
+  // === FUNCIÓN PARA GUARDAR GUARDIA ===
   Future<void> guardarGuardia() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -23,7 +71,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     try {
       await _firestore.collection('guardias').add({
         'nombre': _nombreController.text.trim(),
-        'telefono': _telefonoController.text.trim(),
+        'telefono': _telefonoController.text.trim(), // Permite cadena vacía
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -42,29 +90,68 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     }
   }
 
+  // === FUNCIÓN PARA ELIMINAR GUARDIA ===
   Future<void> eliminarGuardia(String id) async {
-    try {
-      await _firestore.collection('guardias').doc(id).delete();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Guardia eliminado")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al eliminar: $e")),
-      );
+    // NOTA: Se ha mantenido el uso de AlertDialog para confirmación,
+    // ya que no estás en un entorno web que lo prohíba estrictamente
+    // y es una práctica común en Flutter.
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Confirmar Eliminación"),
+        content: Text("¿Estás seguro de que quieres eliminar este guardia?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancelar", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("Eliminar", style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: deleteColor),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _firestore.collection('guardias').doc(id).delete();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Guardia eliminado")),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al eliminar: $e")),
+        );
+      }
     }
   }
 
+  // === FUNCIÓN PARA EDITAR GUARDIA (CON NUEVO ESTILO) ===
   Future<void> editarGuardia(
       String id, String nombreActual, String telefonoActual) async {
     final _editNombreController = TextEditingController(text: nombreActual);
     final _editTelefonoController = TextEditingController(text: telefonoActual);
     final _editFormKey = GlobalKey<FormState>();
 
+    // Definición de estilo para inputs del diálogo
+    final dialogInputDecoration = InputDecoration(
+      labelText: "Nombre",
+      labelStyle: TextStyle(color: primaryColor),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: primaryColor, width: 2),
+      ),
+    );
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Editar Guardia"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Text("Editar Guardia",
+            style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
         content: Form(
           key: _editFormKey,
           child: Column(
@@ -72,15 +159,23 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
             children: [
               TextFormField(
                 controller: _editNombreController,
-                decoration: InputDecoration(labelText: "Nombre"),
-                validator: (val) => val!.isEmpty ? "Ingresa el nombre" : null,
+                decoration: dialogInputDecoration.copyWith(labelText: "Nombre"),
+                validator: (val) => val!.isEmpty
+                    ? "Ingresa el nombre"
+                    : null, // MANTENER OBLIGATORIO
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 16),
               TextFormField(
                 controller: _editTelefonoController,
                 keyboardType: TextInputType.phone,
-                decoration: InputDecoration(labelText: "Teléfono"),
-                validator: (val) => val!.isEmpty ? "Ingresa el teléfono" : null,
+                decoration: dialogInputDecoration.copyWith(
+                    labelText: "Teléfono (Opcional)"),
+                // MODIFICADO: Ahora el validador permite que el campo esté vacío
+                validator: (val) {
+                  // Si tiene valor, se podría añadir validación de formato aquí.
+                  // Si está vacío, es válido (null).
+                  return null;
+                },
               ),
             ],
           ),
@@ -88,7 +183,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancelar"),
+            child: Text("Cancelar", style: TextStyle(color: Colors.grey[700])),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -96,7 +191,8 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
               try {
                 await _firestore.collection('guardias').doc(id).update({
                   'nombre': _editNombreController.text.trim(),
-                  'telefono': _editTelefonoController.text.trim(),
+                  'telefono': _editTelefonoController.text
+                      .trim(), // Permite cadena vacía
                   'timestamp': FieldValue.serverTimestamp(),
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -110,140 +206,209 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
               }
             },
             child: Text("Guardar"),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor, foregroundColor: Colors.white),
           ),
         ],
       ),
     );
   }
 
-  void goToHome() {
-    Navigator.pushReplacementNamed(context, '/home');
-  }
-
-  void goToHistorial() {
-    Navigator.pushReplacementNamed(context, '/historial');
+  // Widget para el formulario de adición
+  Widget _buildAddFormCard(InputDecoration inputDecoration) {
+    return Card(
+      elevation: 4,
+      margin: EdgeInsets.only(bottom: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Registrar Nuevo Guardia",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor,
+                ),
+              ),
+              Divider(color: Colors.grey[300]),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _nombreController,
+                decoration: inputDecoration.copyWith(
+                  labelText: "Nombre del Guardia",
+                  prefixIcon:
+                      Icon(Icons.person, color: primaryColor.withOpacity(0.7)),
+                ),
+                validator: (value) => value!.isEmpty
+                    ? "Ingresa el nombre"
+                    : null, // MANTENER OBLIGATORIO
+              ),
+              SizedBox(height: 16),
+              TextFormField(
+                controller: _telefonoController,
+                keyboardType: TextInputType.phone,
+                decoration: inputDecoration.copyWith(
+                  labelText: "Teléfono (Opcional)",
+                  prefixIcon:
+                      Icon(Icons.phone, color: primaryColor.withOpacity(0.7)),
+                ),
+                // MODIFICADO: Ahora el validador permite que el campo esté vacío
+                validator: (value) => null,
+              ),
+              SizedBox(height: 24),
+              loading
+                  ? Center(
+                      child: CircularProgressIndicator(color: primaryColor))
+                  : ElevatedButton.icon(
+                      onPressed: guardarGuardia,
+                      icon: Icon(Icons.add),
+                      label: Text("Añadir Guardia"),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size(double.infinity, 55),
+                        textStyle: TextStyle(fontSize: 18),
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 5,
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.blueGrey[50],
-      appBar: AppBar(
-        title: Text("Agregar Guardia"),
-        backgroundColor: Colors.blueAccent,
+    // Estilo unificado para los TextFormField
+    final inputDecoration = InputDecoration(
+      labelStyle: TextStyle(color: primaryColor),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade400),
       ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: primaryColor, width: 2),
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    );
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      // =========================================================
+      // === DRAWER POSICIONADO A LA IZQUIERDA (Por defecto) ===
+      // =========================================================
       drawer: Drawer(
         child: Column(
           children: [
+            // Header del Drawer
             UserAccountsDrawerHeader(
-              accountName: Text(_auth.currentUser?.displayName ?? "Chofer"),
+              accountName: Text(_auth.currentUser?.displayName ?? "Chofer",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               accountEmail: Text(_auth.currentUser?.email ?? ""),
               currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 40, color: Colors.blueAccent),
+                backgroundColor: secondaryColor,
+                child: Icon(Icons.person, size: 40, color: Colors.white),
+              ),
+              decoration: BoxDecoration(
+                color: primaryColor,
               ),
             ),
+
+            // Opciones de navegación
             ListTile(
-              leading: Icon(Icons.home),
+              leading: Icon(Icons.home, color: primaryColor),
               title: Text("Inicio"),
               onTap: goToHome,
             ),
             ListTile(
-              leading: Icon(Icons.directions_car),
+              leading: Icon(Icons.directions_car, color: primaryColor),
               title: Text("Registrar Vuelta"),
-              onTap: () =>
-                  Navigator.pushReplacementNamed(context, '/agregarVuelta'),
+              onTap: goToAgregarVuelta,
             ),
             ListTile(
-              leading: Icon(Icons.list),
+              leading: Icon(Icons.history, color: primaryColor),
               title: Text("Ver Historial"),
               onTap: goToHistorial,
             ),
             ListTile(
-              leading: Icon(Icons.shield),
-              title: Text("Agregar Guardia"),
+              leading: Icon(Icons.person_add_alt_1, color: secondaryColor),
+              title: Text("Agregar Guardia",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: primaryColor)),
               selected: true,
+              selectedTileColor: primaryColor.withOpacity(0.1),
               onTap: () {
-                Navigator.pushNamed(context, '/agregarGuardia');
+                Navigator.pop(context);
               },
             ),
             Divider(),
             ListTile(
-              leading: Icon(Icons.settings),
+              leading: Icon(Icons.settings, color: Colors.grey),
               title: Text("Configuración"),
-              onTap: () {},
+              onTap: () {
+                Navigator.pop(context);
+              },
             ),
+            Spacer(),
             ListTile(
-              leading: Icon(Icons.logout, color: Colors.red),
-              title: Text("Cerrar sesión", style: TextStyle(color: Colors.red)),
+              leading: Icon(Icons.logout, color: deleteColor),
+              title: Text("Cerrar sesión",
+                  style: TextStyle(
+                      color: deleteColor, fontWeight: FontWeight.bold)),
               onTap: () async {
                 await _auth.signOut();
+                // Asumiendo que '/' es la ruta de inicio de sesión
                 Navigator.pushReplacementNamed(context, '/');
               },
             ),
+            SizedBox(height: 10),
           ],
         ),
       ),
+      appBar: AppBar(
+        title: Text("Agregar/Gestionar Guardia"),
+        backgroundColor: primaryColor,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.home, color: Colors.white), // Ícono de casa
+            onPressed: goToHome, // Navega a '/home'
+            tooltip: 'Ir a Inicio',
+          ),
+        ],
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
             children: [
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _nombreController,
-                      decoration: InputDecoration(
-                        labelText: "Nombre del Guardia",
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      validator: (value) =>
-                          value!.isEmpty ? "Ingresa el nombre" : null,
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _telefonoController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: "Teléfono",
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      validator: (value) =>
-                          value!.isEmpty ? "Ingresa el teléfono" : null,
-                    ),
-                    SizedBox(height: 24),
-                    loading
-                        ? CircularProgressIndicator()
-                        : ElevatedButton.icon(
-                            onPressed: guardarGuardia,
-                            icon: Icon(Icons.save),
-                            label: Text("Guardar Guardia"),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: Size(double.infinity, 50),
-                              textStyle: TextStyle(fontSize: 18),
-                              backgroundColor: Colors.blueAccent,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 32),
-              Divider(),
-              SizedBox(height: 16),
-              Text(
-                "Guardias Registrados",
-                style: TextStyle(
+              // CARD DE FORMULARIO DE ADICIÓN
+              _buildAddFormCard(inputDecoration),
+
+              // TÍTULO DE LA LISTA
+              Container(
+                alignment: Alignment.centerLeft,
+                margin: EdgeInsets.only(bottom: 10),
+                child: Text(
+                  "Guardias Registrados",
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey[800]),
+                    color: primaryColor,
+                  ),
+                ),
               ),
-              SizedBox(height: 16),
+
+              // LISTA DE GUARDIAS (StreamBuilder)
               StreamBuilder<QuerySnapshot>(
                 stream: _firestore
                     .collection('guardias')
@@ -251,12 +416,18 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData)
-                    return Center(child: CircularProgressIndicator());
+                    return Center(
+                        child: CircularProgressIndicator(color: primaryColor));
 
                   final guardias = snapshot.data!.docs;
 
                   if (guardias.isEmpty)
-                    return Text("No hay guardias registrados");
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Text(
+                          "No hay guardias registrados. ¡Añade uno primero!",
+                          style: TextStyle(color: Colors.grey[700])),
+                    );
 
                   return ListView.builder(
                     shrinkWrap: true,
@@ -264,22 +435,45 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                     itemCount: guardias.length,
                     itemBuilder: (context, index) {
                       final g = guardias[index];
+                      // Asegúrate de manejar el caso en que 'telefono' pueda ser null o no exista si no se guardó antes
+                      final telefono = g['telefono'] ?? "";
+
                       return Card(
-                        margin: EdgeInsets.symmetric(vertical: 4),
+                        elevation: 2,
+                        margin: EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         child: ListTile(
-                          title: Text(g['nombre']),
-                          subtitle: Text("Telefono: ${g['telefono']}"),
+                          leading: CircleAvatar(
+                            backgroundColor: secondaryColor,
+                            child: Text((index + 1).toString(),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          title: Text(g['nombre'],
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text(
+                              "Teléfono: ${telefono.isEmpty ? 'N/A' : telefono}"),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // === BOTÓN DE COPIAR ===
                               IconButton(
-                                icon: Icon(Icons.edit, color: Colors.orange),
-                                onPressed: () => editarGuardia(
-                                    g.id, g['nombre'], g['telefono']),
+                                icon: Icon(Icons.copy, color: copyColor),
+                                onPressed: () => _copiarTelefono(telefono),
+                                tooltip: "Copiar teléfono",
                               ),
                               IconButton(
-                                icon: Icon(Icons.delete, color: Colors.red),
+                                icon: Icon(Icons.edit, color: primaryColor),
+                                onPressed: () =>
+                                    editarGuardia(g.id, g['nombre'], telefono),
+                                tooltip: "Editar",
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete, color: deleteColor),
                                 onPressed: () => eliminarGuardia(g.id),
+                                tooltip: "Eliminar",
                               ),
                             ],
                           ),

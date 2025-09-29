@@ -1,12 +1,27 @@
-allprojects {
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+// 1. Configuración de Buildscript (Define las herramientas para construir)
+buildscript {
+    ext.kotlin_version = '1.8.20' // Puede que tu versión de Kotlin sea diferente, pero se define aquí.
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.0' // tu versión de gradle
-        classpath 'com.google.gms:google-services:4.3.15' // <<--- esto es para Firebase
+        // Estas CLASSPATH DEBEN ir en buildscript. Esto arregla el error.
+        classpath 'com.android.tools.build:gradle:8.1.0' // Tu versión del plugin de Android
+        classpath 'com.google.gms:google-services:4.3.15' // Tu plugin de Firebase
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
+}
+
+// 2. Configuración de Allprojects (Define los repositorios para todos los módulos)
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    // NOTA: El bloque 'dependencies' ha sido quitado de aquí.
 }
 
 rootProject.buildDir = "../build"
