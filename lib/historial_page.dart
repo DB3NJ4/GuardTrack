@@ -51,6 +51,8 @@ class PlaceholderPage extends StatelessWidget {
   }
 }
 // =================================================================
+// *** SE ELIMINARON LAS CLASES TEMPORALES DUPLICADAS QUE CAUSABAN EL CONFLICTO ***
+// =================================================================
 
 class HistorialVueltaPage extends StatefulWidget {
   @override
@@ -70,20 +72,20 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   TextEditingController? _guardiaController;
 
   // === DATOS ESTATICOS PARA LAS OPCIONES DE EDICIÓN ===
+  final List<String> _availableOrigenes = [
+    'Talca',
+    'Pencahue',
+    'Figueroa',
+  ]; // <<< Orígenes disponibles
   final List<String> _availableDestinos = [
-    'Santiago (SCL)',
-    'Concepción',
-    'Puerto Montt',
-    'Antofagasta',
-    'Valparaíso',
-    'La Serena'
+    'Bodega Lourdes',
+    'Centro de Investigacion',
   ];
   final List<String> _availableVueltas = [
-    'Ida',
-    'Retorno',
-    'Mixta',
-    'Directa',
-    'Local'
+    '08:00 a 16:00',
+    '16:00 a 00:00',
+    '08:00 a 18:00',
+    '00:00 a 08:00',
   ];
 
   // === COLORES DEL DISEÑO UNIFICADO ===
@@ -120,11 +122,11 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
     _guardiaController?.dispose();
     _guardiaController = TextEditingController(text: initialGuardia);
 
-    // Inicializamos _tempEditData solo con los Dropdowns (Destino y Vuelta)
+    // Inicializamos _tempEditData con Origen, Destino y Vuelta
     _tempEditData = {
+      'origen': data['origen'], // <<< LEYENDO EL ORIGEN
       'destino': data['destino'],
       'vuelta': data['vuelta'],
-      // 'guardias' se manejará por el controlador, no por _tempEditData
     };
 
     setState(() {
@@ -149,11 +151,14 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
     // 1. OBTENER el valor de guardia DIRECTAMENTE del controlador
     final updatedGuardia = _guardiaController?.text ?? '';
 
-    // 2. Validar Destino y Vuelta (que vienen de los dropdowns en _tempEditData)
-    if (_tempEditData['destino'] == null || _tempEditData['vuelta'] == null) {
+    // 2. Validar Origen, Destino y Vuelta
+    if (_tempEditData['origen'] == null || // <<< VALIDANDO EL ORIGEN
+        _tempEditData['destino'] == null ||
+        _tempEditData['vuelta'] == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('El destino y el tipo de vuelta son obligatorios.'),
+          content:
+              Text('El origen, destino y el tipo de vuelta son obligatorios.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -162,6 +167,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
 
     try {
       await _firestore.collection('vueltas').doc(docId).update({
+        'origen': _tempEditData['origen'], // <<< GUARDANDO EL ORIGEN
         'destino': _tempEditData['destino'],
         'vuelta': _tempEditData['vuelta'],
         'guardias': updatedGuardia, // Usamos el valor del controlador
@@ -324,18 +330,18 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
 
   void goToRegistrarVuelta() {
     Navigator.pop(context); // Cierra el Drawer
+    // Usamos la clase importada (AgregarVueltaPage)
     Navigator.push(
       context,
-      // Usamos la clase importada desde saveround_page.dart
       MaterialPageRoute(builder: (context) => AgregarVueltaPage()),
     );
   }
 
   void goToAgregarGuardia() {
     Navigator.pop(context); // Cierra el Drawer
+    // Usamos la clase importada (AgregarGuardiaPage)
     Navigator.push(
       context,
-      // Usamos la clase importada desde saveguard_page.dart
       MaterialPageRoute(builder: (context) => AgregarGuardiaPage()),
     );
   }
@@ -368,8 +374,9 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   // === WIDGET PARA LA VISTA NORMAL (Solo Lectura) ===
   Widget _buildReadOnlyCard(DocumentSnapshot v) {
     final docId = v.id;
+    final origen = v['origen'] ?? 'N/A'; // <<< LEYENDO EL ORIGEN
     final destino = v['destino'] ?? 'N/A';
-    final vuelta = v['vuelta'] ?? 'N/A';
+    final vuelta = v['horario'] ?? 'N/A';
 
     // Manejo de 'guardias' como String o lista
     String guardiasDisplay;
@@ -405,7 +412,8 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
-                  child: Text("$destino ($vuelta)",
+                  child: Text(
+                      "$origen a $destino ($vuelta)", // Título con Origen y Destino
                       style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -444,6 +452,8 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
 
             // Detalles de la Vuelta
             _buildDetailRow(Icons.calendar_today, "Inicio", fechaDisplay),
+            _buildDetailRow(Icons.location_city, "Origen",
+                origen), // <<< MOSTRANDO EL ORIGEN
             _buildDetailRow(Icons.location_on, "Destino", destino),
             _buildDetailRow(Icons.security, "Guardia(s)", guardiasDisplay),
 
@@ -465,11 +475,20 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   // === WIDGET PARA EL FORMULARIO DE EDICIÓN (En línea) ===
   Widget _buildEditingForm(String docId) {
     // Usamos los datos temporales del estado _tempEditData para los Dropdowns
+    String? currentOrigen =
+        _tempEditData['origen'] as String?; // <<< LEYENDO ORIGEN
     String? currentDestino = _tempEditData['destino'] as String?;
     String? currentVuelta = _tempEditData['vuelta'] as String?;
     // Guardias se maneja a través de _guardiaController
 
     // Crear listas dinámicas que incluyan el valor actual si no está en las opciones estáticas
+
+    // Origenes dinámicos
+    List<String> dynamicOrigenes = List.from(_availableOrigenes);
+    if (currentOrigen != null && !dynamicOrigenes.contains(currentOrigen)) {
+      dynamicOrigenes.insert(0, currentOrigen);
+    }
+
     List<String> dynamicDestinos = List.from(_availableDestinos);
     if (currentDestino != null && !dynamicDestinos.contains(currentDestino)) {
       dynamicDestinos.insert(0, currentDestino);
@@ -504,6 +523,30 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
                   color: secondaryColor,
                 )),
             Divider(color: Colors.grey[300]),
+
+            // === CAMPO ORIGEN (Dropdown) <<< NUEVO ===
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: 'Origen',
+                icon: Icon(Icons.location_city, color: primaryColor),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              value: currentOrigen,
+              items: dynamicOrigenes.map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _tempEditData['origen'] =
+                      newValue; // GUARDANDO ORIGEN TEMPORALMENTE
+                });
+              },
+            ),
+            SizedBox(height: 12),
 
             // === CAMPO DESTINO (Dropdown) ===
             DropdownButtonFormField<String>(

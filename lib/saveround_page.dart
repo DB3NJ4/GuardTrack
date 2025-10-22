@@ -13,22 +13,40 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
+  // === COLECCIÓN DE PERSONAL ACTUALIZADA ===
+  final String _personalCollection = 'personal';
+  // =========================================
+
   // === COLORES DEL DISEÑO UNIFICADO ===
   final Color primaryColor = const Color.fromARGB(255, 8, 148, 187);
   final Color secondaryColor = Colors.amber.shade700;
   final Color backgroundColor = Colors.blueGrey[50]!;
 
   DateTime? fechaInicio;
-  String? vueltaSeleccionada;
+  // CAMBIO: vueltaSeleccionada -> horarioSeleccionado
+  String? horarioSeleccionado;
   String? destinoSeleccionado;
+  String? origenSeleccionado;
 
   List<String> guardias = [];
   List<String> guardiasDisponibles = [];
   bool loading = false;
   bool loadingGuardias = true;
 
-  final List<String> vueltasDisponibles = ['08:00', '16:00', '18:00', '00:00'];
-  final List<String> destinoDisponibles = ['Bodega', 'CII'];
+  // CAMBIO: Se actualizan los rangos horarios completos
+  final List<String> horariosDisponibles = [
+    '08:00 a 16:00',
+    '16:00 a 00:00',
+    '08:00 a 18:00',
+    '00:00 a 08:00',
+  ];
+  // =========================================
+
+  final List<String> destinoDisponibles = [
+    'Bodega Lourdes',
+    'Centro de Investigacion'
+  ];
+  final List<String> origenDisponibles = ['Talca', 'Pencahue', 'Figueroa'];
 
   @override
   void initState() {
@@ -44,7 +62,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
 
   Future<void> cargarGuardias() async {
     try {
-      final snapshot = await _firestore.collection('guardias').get();
+      final snapshot = await _firestore.collection(_personalCollection).get();
       setState(() {
         guardiasDisponibles =
             snapshot.docs.map((doc) => doc['nombre'].toString()).toList();
@@ -83,9 +101,9 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
     }
   }
 
-  // === DIÁLOGO DE CONFIRMACIÓN CON INFORMACIÓN CARGADA ===
-  void _mostrarDialogoConfirmacion(BuildContext context, String destino,
-      String vuelta, DateTime fecha, List<String> guardias) {
+  // === DIÁLOGO DE CONFIRMACIÓN CON INFORMACIÓN CARGADA (ACTUALIZADO para Horario) ===
+  void _mostrarDialogoConfirmacion(BuildContext context, String origen,
+      String destino, String horario, DateTime fecha, List<String> guardias) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -106,11 +124,11 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
                 Text("Has creado la vuelta correctamente. Los detalles son:",
                     style: TextStyle(fontWeight: FontWeight.w600)),
                 SizedBox(height: 10),
+                Text("Origen: $origen"),
                 Text("Destino: $destino"),
-                Text("Vuelta: $vuelta"),
+                Text("Horario: $horario"), // CAMBIO: Usando Horario
                 Text("Fecha: ${fecha.day}/${fecha.month}/${fecha.year}"),
-                Text(
-                    "Guardias: ${guardias.join(', ')}"), // Muestra la lista separada por coma
+                Text("Guardias: ${guardias.join(', ')}"),
               ],
             ),
           ),
@@ -130,14 +148,16 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
   }
   // ===================================================
 
-  // === NUEVA FUNCIÓN PARA LIMPIAR EL FORMULARIO ===
+  // === FUNCIÓN PARA LIMPIAR EL FORMULARIO (ACTUALIZADO para Horario) ===
   void resetForm() {
     _formKey.currentState!.reset(); // Limpia los DropdownFields
     setState(() {
       fechaInicio = null;
       guardias = [];
-      vueltaSeleccionada = null;
+      // CAMBIO: vueltaSeleccionada -> horarioSeleccionado
+      horarioSeleccionado = null;
       destinoSeleccionado = null;
+      origenSeleccionado = null;
     });
     // Muestra una confirmación rápida
     ScaffoldMessenger.of(context).showSnackBar(
@@ -150,7 +170,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
   // ===============================================
 
   Future<void> guardarVuelta() async {
-    // 1. Validar el formulario (incluye destinoSeleccionado y vueltaSeleccionada)
+    // 1. Validar el formulario (incluye origen, destino y horario)
     if (!_formKey.currentState!.validate()) return;
 
     // 2. Validaciones manuales (Guardias y Fecha)
@@ -170,22 +190,28 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
     setState(() => loading = true);
 
     try {
+      // Nota: El campo 'guardias' aquí guarda solo los NOMBRES.
+      // Para tener el RUT y el HORARIO en el Historial, tendrías que:
+      // 1. Buscar el RUT y el HORARIO para CADA guardia seleccionado en la colección 'personal'.
+      // 2. Guardar un array de objetos en 'vueltas', no solo de strings.
+
+      // Aquí guardamos el campo 'horario' con el rango de turno completo
       await _firestore.collection('vueltas').add({
         'chofer': _auth.currentUser!.uid,
-        'origen': 'Talca',
+        'origen': origenSeleccionado,
         'destino': destinoSeleccionado,
         'fechaInicio': fechaInicio,
-        'vuelta': vueltaSeleccionada,
+        'horario': horarioSeleccionado, // CAMBIO: Guardando el HORARIO completo
         'guardias': guardias,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       // 3. Mostrar el nuevo diálogo de confirmación, PASANDO los datos
-      _mostrarDialogoConfirmacion(context, destinoSeleccionado!,
-          vueltaSeleccionada!, fechaInicio!, guardias);
+      _mostrarDialogoConfirmacion(context, origenSeleccionado!,
+          destinoSeleccionado!, horarioSeleccionado!, fechaInicio!, guardias);
 
       // 4. Limpiar campos
-      resetForm(); // Usamos la nueva función de limpieza
+      resetForm();
     } catch (e) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
@@ -344,11 +370,29 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
               children: [
                 SizedBox(height: 8),
 
-                // 1. TARJETA DE DESTINO Y VUELTA
+                // 1. TARJETA DE DESTINO Y HORARIO
                 _buildFormCard(
-                  title: "Destino y Horario",
+                  title: "Origen, Destino y Horario",
                   content: Column(
                     children: [
+                      // ORIGEN (CASILLA OBLIGATORIA)
+                      DropdownButtonFormField<String>(
+                        value: origenSeleccionado,
+                        decoration:
+                            inputDecoration.copyWith(labelText: "Origen"),
+                        items: origenDisponibles
+                            .map((o) =>
+                                DropdownMenuItem(value: o, child: Text(o)))
+                            .toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            origenSeleccionado = val;
+                          });
+                        },
+                        validator: (val) =>
+                            val == null ? "Selecciona el origen" : null,
+                      ),
+                      SizedBox(height: 16),
                       // DESTINO (CASILLA OBLIGATORIA)
                       DropdownButtonFormField<String>(
                         value: destinoSeleccionado,
@@ -367,28 +411,31 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
                             val == null ? "Selecciona el destino" : null,
                       ),
                       SizedBox(height: 16),
-                      // VUELTA (Hora) (CASILLA OBLIGATORIA)
+                      // HORARIO (Rango de Turno Completo) (CASILLA OBLIGATORIA)
                       DropdownButtonFormField<String>(
-                        value: vueltaSeleccionada,
+                        // CAMBIO: vueltaSeleccionada -> horarioSeleccionado
+                        value: horarioSeleccionado,
                         decoration: inputDecoration.copyWith(
-                            labelText: "Hora de la Vuelta"),
-                        items: vueltasDisponibles
-                            .map((v) =>
-                                DropdownMenuItem(value: v, child: Text(v)))
+                            labelText: "Rango Horario"),
+                        // CAMBIO: vueltasDisponibles -> horariosDisponibles
+                        items: horariosDisponibles
+                            .map((h) =>
+                                DropdownMenuItem(value: h, child: Text(h)))
                             .toList(),
                         onChanged: (val) {
                           setState(() {
-                            vueltaSeleccionada = val;
+                            // CAMBIO: vueltaSeleccionada -> horarioSeleccionado
+                            horarioSeleccionado = val;
                           });
                         },
                         validator: (val) =>
-                            val == null ? "Selecciona la vuelta" : null,
+                            val == null ? "Selecciona el horario" : null,
                       ),
                     ],
                   ),
                 ),
 
-                // 2. TARJETA DE FECHA (CASILLA OBLIGATORIA manejada en guardarVuelta)
+                // 2. TARJETA DE FECHA (CASILLA OBLIGATORIA)
                 _buildFormCard(
                   title: "Fecha de Inicio",
                   content: OutlinedButton.icon(
@@ -411,7 +458,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
                   ),
                 ),
 
-                // 3. TARJETA DE SELECCIÓN DE GUARDIAS (CASILLA OBLIGATORIA manejada en guardarVuelta)
+                // 3. TARJETA DE SELECCIÓN DE GUARDIAS
                 _buildFormCard(
                   title: "Asignar Guardias (${guardias.length} seleccionados)",
                   content: loadingGuardias
@@ -454,7 +501,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
                 // Contenedor para los dos botones
                 Row(
                   children: [
-                    // BOTÓN LIMPIAR (NUEVO)
+                    // BOTÓN LIMPIAR
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: loading ? null : resetForm,

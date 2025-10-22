@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Importante para el portapapeles
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -11,9 +11,14 @@ class AgregarGuardiaPage extends StatefulWidget {
 class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
   final _formKey = GlobalKey<FormState>();
   final _nombreController = TextEditingController();
+  final _rutController =
+      TextEditingController(); // NUEVO: Controlador para el RUT
   final _telefonoController = TextEditingController();
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
+
+  // Colección principal para todo el personal (Guardias y Chóferes)
+  static const String _personalCollection = 'personal';
 
   // === COLORES DEL DISEÑO UNIFICADO ===
   final Color primaryColor =
@@ -29,16 +34,15 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
   @override
   void dispose() {
     _nombreController.dispose();
+    _rutController.dispose(); // NUEVO: Disponer el controlador de RUT
     _telefonoController.dispose();
     super.dispose();
   }
 
   // === FUNCIÓN PARA COPIAR TELÉFONO ===
   Future<void> _copiarTelefono(String telefono) async {
-    // Copia el texto al portapapeles del sistema
     await Clipboard.setData(ClipboardData(text: telefono));
 
-    // Muestra una confirmación
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("Teléfono '$telefono' copiado al portapapeles"),
@@ -49,7 +53,6 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
 
   // === FUNCIONES DE NAVEGACIÓN ===
   void goToHome() {
-    // Navegación forzada al home
     Navigator.pushReplacementNamed(context, '/home');
   }
 
@@ -63,15 +66,17 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     Navigator.pushReplacementNamed(context, '/historial');
   }
 
-  // === FUNCIÓN PARA GUARDAR GUARDIA ===
+  // === FUNCIÓN PARA GUARDAR GUARDIA (Ahora Personal) ===
   Future<void> guardarGuardia() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => loading = true);
     try {
-      await _firestore.collection('guardias').add({
+      await _firestore.collection(_personalCollection).add({
         'nombre': _nombreController.text.trim(),
-        'telefono': _telefonoController.text.trim(), // Permite cadena vacía
+        'rut': _rutController.text.trim(), // CAMBIO: Añadido el campo RUT
+        'telefono': _telefonoController.text.trim(),
+        'rol': 'Guardia', // Asumiendo que esta página solo añade Guardias
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -80,6 +85,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
       );
 
       _nombreController.clear();
+      _rutController.clear(); // Limpiar RUT
       _telefonoController.clear();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,11 +96,8 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     }
   }
 
-  // === FUNCIÓN PARA ELIMINAR GUARDIA ===
+  // === FUNCIÓN PARA ELIMINAR GUARDIA (Ahora Personal) ===
   Future<void> eliminarGuardia(String id) async {
-    // NOTA: Se ha mantenido el uso de AlertDialog para confirmación,
-    // ya que no estás en un entorno web que lo prohíba estrictamente
-    // y es una práctica común en Flutter.
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -116,7 +119,10 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
 
     if (confirm == true) {
       try {
-        await _firestore.collection('guardias').doc(id).delete();
+        await _firestore
+            .collection(_personalCollection)
+            .doc(id)
+            .delete(); // CAMBIO: Colección 'personal'
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Guardia eliminado")),
         );
@@ -128,14 +134,15 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     }
   }
 
-  // === FUNCIÓN PARA EDITAR GUARDIA (CON NUEVO ESTILO) ===
-  Future<void> editarGuardia(
-      String id, String nombreActual, String telefonoActual) async {
+  // === FUNCIÓN PARA EDITAR GUARDIA (Ahora Personal) ===
+  Future<void> editarGuardia(String id, String nombreActual, String rutActual,
+      String telefonoActual) async {
     final _editNombreController = TextEditingController(text: nombreActual);
+    final _editRutController = TextEditingController(
+        text: rutActual); // NUEVO: Controlador de edición para RUT
     final _editTelefonoController = TextEditingController(text: telefonoActual);
     final _editFormKey = GlobalKey<FormState>();
 
-    // Definición de estilo para inputs del diálogo
     final dialogInputDecoration = InputDecoration(
       labelText: "Nombre",
       labelStyle: TextStyle(color: primaryColor),
@@ -154,30 +161,40 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
             style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
         content: Form(
           key: _editFormKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _editNombreController,
-                decoration: dialogInputDecoration.copyWith(labelText: "Nombre"),
-                validator: (val) => val!.isEmpty
-                    ? "Ingresa el nombre"
-                    : null, // MANTENER OBLIGATORIO
-              ),
-              SizedBox(height: 16),
-              TextFormField(
-                controller: _editTelefonoController,
-                keyboardType: TextInputType.phone,
-                decoration: dialogInputDecoration.copyWith(
-                    labelText: "Teléfono (Opcional)"),
-                // MODIFICADO: Ahora el validador permite que el campo esté vacío
-                validator: (val) {
-                  // Si tiene valor, se podría añadir validación de formato aquí.
-                  // Si está vacío, es válido (null).
-                  return null;
-                },
-              ),
-            ],
+          child: SingleChildScrollView(
+            // Añadir SingleChildScrollView para evitar overflow
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // CAMPO NOMBRE
+                TextFormField(
+                  controller: _editNombreController,
+                  decoration:
+                      dialogInputDecoration.copyWith(labelText: "Nombre"),
+                  validator: (val) => val!.isEmpty ? "Ingresa el nombre" : null,
+                ),
+                SizedBox(height: 16),
+                // NUEVO CAMPO RUT
+                TextFormField(
+                  controller: _editRutController,
+                  keyboardType:
+                      TextInputType.text, // Puede ser text para RUT con guiones
+                  decoration: dialogInputDecoration.copyWith(labelText: "RUT"),
+                  validator: (val) => val!.isEmpty ? "Ingresa el RUT" : null,
+                ),
+                SizedBox(height: 16),
+                // CAMPO TELÉFONO
+                TextFormField(
+                  controller: _editTelefonoController,
+                  keyboardType: TextInputType.phone,
+                  decoration: dialogInputDecoration.copyWith(
+                      labelText: "Teléfono (Opcional)"),
+                  validator: (val) {
+                    return null;
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -189,10 +206,15 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
             onPressed: () async {
               if (!_editFormKey.currentState!.validate()) return;
               try {
-                await _firestore.collection('guardias').doc(id).update({
+                await _firestore
+                    .collection(_personalCollection)
+                    .doc(id)
+                    .update({
+                  // CAMBIO: Colección 'personal'
                   'nombre': _editNombreController.text.trim(),
-                  'telefono': _editTelefonoController.text
-                      .trim(), // Permite cadena vacía
+                  'rut':
+                      _editRutController.text.trim(), // CAMBIO: Actualizar RUT
+                  'telefono': _editTelefonoController.text.trim(),
                   'timestamp': FieldValue.serverTimestamp(),
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -237,6 +259,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
               ),
               Divider(color: Colors.grey[300]),
               SizedBox(height: 16),
+              // CAMPO NOMBRE
               TextFormField(
                 controller: _nombreController,
                 decoration: inputDecoration.copyWith(
@@ -244,11 +267,23 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                   prefixIcon:
                       Icon(Icons.person, color: primaryColor.withOpacity(0.7)),
                 ),
-                validator: (value) => value!.isEmpty
-                    ? "Ingresa el nombre"
-                    : null, // MANTENER OBLIGATORIO
+                validator: (value) =>
+                    value!.isEmpty ? "Ingresa el nombre" : null,
               ),
               SizedBox(height: 16),
+              // NUEVO CAMPO RUT
+              TextFormField(
+                controller: _rutController,
+                keyboardType: TextInputType.text,
+                decoration: inputDecoration.copyWith(
+                  labelText: "RUT",
+                  prefixIcon:
+                      Icon(Icons.badge, color: primaryColor.withOpacity(0.7)),
+                ),
+                validator: (value) => value!.isEmpty ? "Ingresa el RUT" : null,
+              ),
+              SizedBox(height: 16),
+              // CAMPO TELÉFONO
               TextFormField(
                 controller: _telefonoController,
                 keyboardType: TextInputType.phone,
@@ -257,7 +292,6 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                   prefixIcon:
                       Icon(Icons.phone, color: primaryColor.withOpacity(0.7)),
                 ),
-                // MODIFICADO: Ahora el validador permite que el campo esté vacío
                 validator: (value) => null,
               ),
               SizedBox(height: 24),
@@ -411,7 +445,8 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
               // LISTA DE GUARDIAS (StreamBuilder)
               StreamBuilder<QuerySnapshot>(
                 stream: _firestore
-                    .collection('guardias')
+                    .collection(
+                        _personalCollection) // CAMBIO: Colección 'personal'
                     .orderBy('timestamp', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -435,8 +470,9 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                     itemCount: guardias.length,
                     itemBuilder: (context, index) {
                       final g = guardias[index];
-                      // Asegúrate de manejar el caso en que 'telefono' pueda ser null o no exista si no se guardó antes
+                      // Asegúrate de manejar el caso en que los campos puedan ser null o no existir
                       final telefono = g['telefono'] ?? "";
+                      final rut = g['rut'] ?? "N/A"; // NUEVO: Extraer RUT
 
                       return Card(
                         elevation: 2,
@@ -453,8 +489,15 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                           ),
                           title: Text(g['nombre'],
                               style: TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(
-                              "Teléfono: ${telefono.isEmpty ? 'N/A' : telefono}"),
+                          // NUEVO SUBTITLE: Mostrar RUT y Teléfono
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("RUT: $rut"),
+                              Text(
+                                  "Teléfono: ${telefono.isEmpty ? 'N/A' : telefono}"),
+                            ],
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -466,8 +509,11 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                               ),
                               IconButton(
                                 icon: Icon(Icons.edit, color: primaryColor),
-                                onPressed: () =>
-                                    editarGuardia(g.id, g['nombre'], telefono),
+                                onPressed: () => editarGuardia(
+                                    g.id,
+                                    g['nombre'],
+                                    rut,
+                                    telefono), // CAMBIO: Pasar el RUT
                                 tooltip: "Editar",
                               ),
                               IconButton(
