@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:guardtrack_app/saveguard_page.dart';
-import 'package:guardtrack_app/saveround_page.dart';
+import 'package:guardtrack_app/savesodexo_page.dart';
+import 'package:guardtrack_app/saveroundsodexo_page.dart';
+import 'package:guardtrack_app/historial_page.dart';
+import 'package:guardtrack_app/configuration.dart';
 import 'package:guardtrack_app/home_page.dart';
 // Importación del componente CustomDrawer
 import 'package:guardtrack_app/components/custom_drawer.dart';
 
-class HistorialVueltaPage extends StatefulWidget {
+class HistorialSodexoPage extends StatefulWidget {
   @override
-  _HistorialVueltaPageState createState() => _HistorialVueltaPageState();
+  _HistorialSodexoPageState createState() => _HistorialSodexoPageState();
 }
 
-class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
+class _HistorialSodexoPageState extends State<HistorialSodexoPage> {
   // Instancias de Firebase
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
@@ -21,16 +23,16 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   String? _editingDocId;
   Map<String, dynamic> _tempEditData = {};
 
-  // Controlador para el campo de Guardia
-  TextEditingController? _guardiaController;
+  // Controlador para el campo de Trabajadores
+  TextEditingController? _trabajadoresController;
 
   // === DATOS ESTATICOS PARA LAS OPCIONES DE EDICIÓN ===
   final List<String> _availableOrigenes = ['Talca', 'Pencahue', 'Figueroa'];
   final List<String> _availableDestinos = [
     'Bodega Lourdes',
-    'Centro de Investigacion',
+    'Centro de Investigacion'
   ];
-  final List<String> _availableVueltas = [
+  final List<String> _availableHorarios = [
     '08:00 a 16:00',
     '16:00 a 00:00',
     '08:00 a 18:00',
@@ -46,14 +48,17 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
 
   @override
   void dispose() {
-    _guardiaController?.dispose();
+    _trabajadoresController?.dispose();
     super.dispose();
   }
 
   // === MÉTODO PARA IR AL HOME ===
   void goToHome() {
     Navigator.pop(context);
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => HomePage()),
+    );
   }
 
   // === LÓGICA DE EDICIÓN EN LÍNEA ===
@@ -61,25 +66,26 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   void _startEditing(DocumentSnapshot vueltaDoc) {
     final data = vueltaDoc.data() as Map<String, dynamic>;
 
-    // Convertir el campo 'guardias' a una sola cadena de texto para la edición
-    final dynamic currentGuardValue = data['guardias'];
-    String initialGuardia = '';
+    // Convertir el campo 'trabajadores' a una sola cadena de texto para la edición
+    final dynamic currentTrabajadoresValue = data['trabajadores'];
+    String initialTrabajadores = '';
 
-    if (currentGuardValue is List && currentGuardValue.isNotEmpty) {
-      initialGuardia = currentGuardValue.join(', ');
-    } else if (currentGuardValue is String) {
-      initialGuardia = currentGuardValue;
+    if (currentTrabajadoresValue is List &&
+        currentTrabajadoresValue.isNotEmpty) {
+      initialTrabajadores = currentTrabajadoresValue.join(', ');
+    } else if (currentTrabajadoresValue is String) {
+      initialTrabajadores = currentTrabajadoresValue;
     }
 
     // Inicializa o recrea el controlador con el valor inicial
-    _guardiaController?.dispose();
-    _guardiaController = TextEditingController(text: initialGuardia);
+    _trabajadoresController?.dispose();
+    _trabajadoresController = TextEditingController(text: initialTrabajadores);
 
-    // Inicializamos _tempEditData con Origen, Destino y Vuelta
+    // Inicializamos _tempEditData con Origen, Destino y Horario
     _tempEditData = {
       'origen': data['origen'],
       'destino': data['destino'],
-      'vuelta': data['vuelta'],
+      'horario': data['horario'],
     };
 
     setState(() {
@@ -88,8 +94,8 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   }
 
   void _cancelEditing() {
-    _guardiaController?.dispose();
-    _guardiaController = null;
+    _trabajadoresController?.dispose();
+    _trabajadoresController = null;
 
     setState(() {
       _editingDocId = null;
@@ -98,15 +104,14 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   }
 
   Future<void> _saveChanges(String docId) async {
-    final updatedGuardia = _guardiaController?.text ?? '';
+    final updatedTrabajadores = _trabajadoresController?.text ?? '';
 
     if (_tempEditData['origen'] == null ||
         _tempEditData['destino'] == null ||
-        _tempEditData['vuelta'] == null) {
+        _tempEditData['horario'] == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text('El origen, destino y el tipo de vuelta son obligatorios.'),
+          content: Text('El origen, destino y el horario son obligatorios.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -114,27 +119,27 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
     }
 
     try {
-      await _firestore.collection('vueltas').doc(docId).update({
+      await _firestore.collection('vueltas_sodexo').doc(docId).update({
         'origen': _tempEditData['origen'],
         'destino': _tempEditData['destino'],
-        'vuelta': _tempEditData['vuelta'],
-        'guardias': updatedGuardia,
+        'horario': _tempEditData['horario'],
+        'trabajadores': updatedTrabajadores,
       });
       _cancelEditing();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Vuelta actualizada con éxito.'),
+            content: Text('Vuelta Sodexo actualizada con éxito.'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print("Error al actualizar la vuelta: $e");
+      print("Error al actualizar la vuelta Sodexo: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al actualizar la vuelta.'),
+            content: Text('Error al actualizar la vuelta Sodexo.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -145,14 +150,14 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   // === LÓGICA DE ELIMINACIÓN Y FILTROS ===
 
   Future<void> _confirmDelete(
-      String docId, String destino, String vuelta) async {
+      String docId, String destino, String horario) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: Text("Confirmar Eliminación"),
           content: Text(
-              "¿Estás seguro de que quieres eliminar la vuelta a $destino ($vuelta)? Esta acción es irreversible."),
+              "¿Estás seguro de que quieres eliminar la vuelta Sodexo a $destino ($horario)? Esta acción es irreversible."),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -177,21 +182,21 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
 
   Future<void> _deleteVuelta(String docId) async {
     try {
-      await _firestore.collection('vueltas').doc(docId).delete();
+      await _firestore.collection('vueltas_sodexo').doc(docId).delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Vuelta eliminada con éxito.'),
+            content: Text('Vuelta Sodexo eliminada con éxito.'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
-      print("Error al eliminar la vuelta: $e");
+      print("Error al eliminar la vuelta Sodexo: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al eliminar la vuelta.'),
+            content: Text('Error al eliminar la vuelta Sodexo.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -233,7 +238,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
 
   Stream<QuerySnapshot> getVueltaStream() {
     Query query = _firestore
-        .collection('vueltas')
+        .collection('vueltas_sodexo')
         .orderBy('fechaInicio', descending: true);
 
     if (filtroFecha != null) {
@@ -292,15 +297,15 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
     final docId = v.id;
     final origen = v['origen'] ?? 'N/A';
     final destino = v['destino'] ?? 'N/A';
-    final vuelta = v['horario'] ?? 'N/A';
+    final horario = v['horario'] ?? 'N/A';
 
-    // Manejo de 'guardias' como String o lista
-    String guardiasDisplay;
-    final dynamic guardsValue = v['guardias'];
-    if (guardsValue is List) {
-      guardiasDisplay = guardsValue.join(', ');
+    // Manejo de 'trabajadores' como String o lista
+    String trabajadoresDisplay;
+    final dynamic trabajadoresValue = v['trabajadores'];
+    if (trabajadoresValue is List) {
+      trabajadoresDisplay = trabajadoresValue.join(', ');
     } else {
-      guardiasDisplay = guardsValue as String? ?? 'Ninguno';
+      trabajadoresDisplay = trabajadoresValue as String? ?? 'Ninguno';
     }
 
     final choferUid = v['chofer'] ?? 'Anonimo';
@@ -327,7 +332,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
               children: [
                 Flexible(
                   child: Text(
-                    "$origen a $destino ($vuelta)",
+                    "$origen a $destino ($horario)",
                     style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -337,6 +342,16 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Badge de Sodexo
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Chip(
+                        label: Text("Sodexo",
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 12)),
+                        backgroundColor: Colors.blue.shade700,
+                      ),
+                    ),
                     if (isCurrentUser)
                       Padding(
                         padding: const EdgeInsets.only(left: 8.0),
@@ -351,13 +366,14 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
                       IconButton(
                         icon: Icon(Icons.edit, color: primaryColor),
                         onPressed: () => _startEditing(v),
-                        tooltip: 'Editar esta vuelta',
+                        tooltip: 'Editar esta vuelta Sodexo',
                       ),
                     if (isCurrentUser)
                       IconButton(
                         icon: Icon(Icons.delete, color: Colors.red.shade700),
-                        onPressed: () => _confirmDelete(docId, destino, vuelta),
-                        tooltip: 'Eliminar esta vuelta',
+                        onPressed: () =>
+                            _confirmDelete(docId, destino, horario),
+                        tooltip: 'Eliminar esta vuelta Sodexo',
                       ),
                   ],
                 ),
@@ -365,11 +381,12 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
             ),
             Divider(height: 15, color: Colors.grey[300]),
 
-            // Detalles de la Vuelta
+            // Detalles de la Vuelta Sodexo
             _buildDetailRow(Icons.calendar_today, "Inicio", fechaDisplay),
             _buildDetailRow(Icons.location_city, "Origen", origen),
             _buildDetailRow(Icons.location_on, "Destino", destino),
-            _buildDetailRow(Icons.security, "Guardia(s)", guardiasDisplay),
+            _buildDetailRow(
+                Icons.people, "Trabajador(es)", trabajadoresDisplay),
 
             if (!isCurrentUser)
               FutureBuilder<String>(
@@ -389,7 +406,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
   Widget _buildEditingForm(String docId) {
     String? currentOrigen = _tempEditData['origen'] as String?;
     String? currentDestino = _tempEditData['destino'] as String?;
-    String? currentVuelta = _tempEditData['vuelta'] as String?;
+    String? currentHorario = _tempEditData['horario'] as String?;
 
     // Crear listas dinámicas que incluyan el valor actual si no está en las opciones estáticas
     List<String> dynamicOrigenes = List.from(_availableOrigenes);
@@ -402,13 +419,13 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
       dynamicDestinos.insert(0, currentDestino);
     }
 
-    List<String> dynamicVueltas = List.from(_availableVueltas);
-    if (currentVuelta != null && !dynamicVueltas.contains(currentVuelta)) {
-      dynamicVueltas.insert(0, currentVuelta);
+    List<String> dynamicHorarios = List.from(_availableHorarios);
+    if (currentHorario != null && !dynamicHorarios.contains(currentHorario)) {
+      dynamicHorarios.insert(0, currentHorario);
     }
 
-    if (_guardiaController == null) {
-      _guardiaController = TextEditingController();
+    if (_trabajadoresController == null) {
+      _trabajadoresController = TextEditingController();
     }
 
     return Card(
@@ -422,7 +439,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Editando Vuelta",
+            Text("Editando Vuelta Sodexo",
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -430,7 +447,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
                 )),
             Divider(color: Colors.grey[300]),
 
-            // CAMPO ORIGEN
+            // Campo Origen
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: 'Origen',
@@ -453,7 +470,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
             ),
             SizedBox(height: 12),
 
-            // CAMPO DESTINO
+            // Campo Destino
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: 'Destino',
@@ -476,16 +493,16 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
             ),
             SizedBox(height: 12),
 
-            // CAMPO TIPO DE VUELTA
+            // Campo Horario
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
-                labelText: 'Tipo de Vuelta',
-                icon: Icon(Icons.swap_horiz, color: primaryColor),
+                labelText: 'Horario',
+                icon: Icon(Icons.access_time, color: primaryColor),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              value: currentVuelta,
-              items: dynamicVueltas.map((String value) {
+              value: currentHorario,
+              items: dynamicHorarios.map((String value) {
                 return DropdownMenuItem<String>(
                   value: value,
                   child: Text(value),
@@ -493,19 +510,19 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
               }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
-                  _tempEditData['vuelta'] = newValue;
+                  _tempEditData['horario'] = newValue;
                 });
               },
             ),
             SizedBox(height: 16),
 
-            // CAMPO GUARDIA
+            // Campo Trabajadores
             TextFormField(
-              controller: _guardiaController,
+              controller: _trabajadoresController,
               decoration: InputDecoration(
-                labelText: 'Guardia Asignado (Nombre completo)',
-                hintText: 'Escribe el nombre del guardia',
-                icon: Icon(Icons.security, color: primaryColor),
+                labelText: 'Trabajadores Asignados (Separados por coma)',
+                hintText: 'Escribe los nombres de los trabajadores',
+                icon: Icon(Icons.people, color: primaryColor),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -547,12 +564,12 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
       // =========================================================
       drawer: CustomDrawer(
         context: context,
-        currentPage: 'HistorialConchaToro', // Identificador para esta página
+        currentPage: 'HistorialSodexo', // Identificador para esta página
         primaryColor: primaryColor,
         secondaryColor: secondaryColor,
       ),
       appBar: AppBar(
-        title: Text("Historial de Vueltas"),
+        title: Text("Historial de Vueltas Sodexo"),
         backgroundColor: primaryColor,
         elevation: 0,
         leading: Builder(
@@ -617,7 +634,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
             ),
             SizedBox(height: 16),
 
-            // LISTADO DE VUELTAS
+            // LISTADO DE VUELTAS SODEXO
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: getVueltaStream(),
@@ -629,7 +646,7 @@ class _HistorialVueltaPageState extends State<HistorialVueltaPage> {
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
                     return Center(
                         child: Text(
-                            "No hay vueltas registradas para esta selección.",
+                            "No hay vueltas Sodexo registradas para esta selección.",
                             style: TextStyle(color: Colors.grey.shade600)));
 
                   final vueltas = snapshot.data!.docs;

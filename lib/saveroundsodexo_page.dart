@@ -1,22 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+// IMPORTACIONES DE TODAS LAS VISTAS
+import 'package:guardtrack_app/savesodexo_page.dart';
+import 'package:guardtrack_app/saveround_page.dart';
+import 'package:guardtrack_app/saveguard_page.dart';
+import 'package:guardtrack_app/historial_page.dart';
+import 'package:guardtrack_app/configuration.dart';
+import 'package:guardtrack_app/home_page.dart';
 // Importación del componente CustomDrawer
 import 'package:guardtrack_app/components/custom_drawer.dart';
 
-class AgregarVueltaPage extends StatefulWidget {
+class SaveRoundSodexoPage extends StatefulWidget {
   @override
-  _AgregarVueltaPageState createState() => _AgregarVueltaPageState();
+  _SaveRoundSodexoPageState createState() => _SaveRoundSodexoPageState();
 }
 
-class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
+class _SaveRoundSodexoPageState extends State<SaveRoundSodexoPage> {
   final _formKey = GlobalKey<FormState>();
-  final _destinoController = TextEditingController();
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
-  // === COLECCIÓN DE PERSONAL ACTUALIZADA ===
-  final String _personalCollection = 'personal';
+  // === COLECCIONES ===
+  final String _trabajadoresCollection = 'trabajadores_sodexo';
+  final String _vueltasCollection = 'vueltas_sodexo';
 
   // === COLORES DEL DISEÑO UNIFICADO ===
   final Color primaryColor = const Color.fromARGB(255, 8, 148, 187);
@@ -28,10 +36,10 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
   String? destinoSeleccionado;
   String? origenSeleccionado;
 
-  List<String> guardias = [];
-  List<String> guardiasDisponibles = [];
+  List<String> trabajadores = [];
+  List<String> trabajadoresDisponibles = [];
   bool loading = false;
-  bool loadingGuardias = true;
+  bool loadingTrabajadores = true;
 
   final List<String> horariosDisponibles = [
     '08:00 a 16:00',
@@ -44,38 +52,42 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
     'Bodega Lourdes',
     'Centro de Investigacion'
   ];
+
   final List<String> origenDisponibles = ['Talca', 'Pencahue', 'Figueroa'];
 
   @override
   void initState() {
     super.initState();
-    cargarGuardias();
+    cargarTrabajadores();
   }
 
   @override
   void dispose() {
-    _destinoController.dispose();
     super.dispose();
   }
 
   // === MÉTODO PARA IR AL HOME ===
   void goToHome() {
     Navigator.pop(context);
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => HomePage()),
+    );
   }
 
-  Future<void> cargarGuardias() async {
+  Future<void> cargarTrabajadores() async {
     try {
-      final snapshot = await _firestore.collection(_personalCollection).get();
+      final snapshot =
+          await _firestore.collection(_trabajadoresCollection).get();
       setState(() {
-        guardiasDisponibles =
+        trabajadoresDisponibles =
             snapshot.docs.map((doc) => doc['nombre'].toString()).toList();
-        loadingGuardias = false;
+        loadingTrabajadores = false;
       });
     } catch (e) {
-      setState(() => loadingGuardias = false);
+      setState(() => loadingTrabajadores = false);
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al cargar guardias: $e")));
+          SnackBar(content: Text("Error al cargar trabajadores: $e")));
     }
   }
 
@@ -105,9 +117,14 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
     }
   }
 
-  // === DIÁLOGO DE CONFIRMACIÓN CON INFORMACIÓN CARGADA ===
-  void _mostrarDialogoConfirmacion(BuildContext context, String origen,
-      String destino, String horario, DateTime fecha, List<String> guardias) {
+  // === DIÁLOGO DE CONFIRMACIÓN ===
+  void _mostrarDialogoConfirmacion(
+      BuildContext context,
+      String origen,
+      String destino,
+      String horario,
+      DateTime fecha,
+      List<String> trabajadores) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -119,20 +136,21 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
             children: [
               Icon(Icons.check_circle, color: primaryColor, size: 30),
               SizedBox(width: 10),
-              Text("¡Vuelta Registrada!"),
+              Text("¡Vuelta Sodexo Registrada!"),
             ],
           ),
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text("Has creado la vuelta correctamente. Los detalles son:",
+                Text(
+                    "Has creado la vuelta Sodexo correctamente. Los detalles son:",
                     style: TextStyle(fontWeight: FontWeight.w600)),
                 SizedBox(height: 10),
                 Text("Origen: $origen"),
                 Text("Destino: $destino"),
                 Text("Horario: $horario"),
                 Text("Fecha: ${fecha.day}/${fecha.month}/${fecha.year}"),
-                Text("Guardias: ${guardias.join(', ')}"),
+                Text("Trabajadores: ${trabajadores.join(', ')}"),
               ],
             ),
           ),
@@ -156,7 +174,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
     _formKey.currentState!.reset();
     setState(() {
       fechaInicio = null;
-      guardias = [];
+      trabajadores = [];
       horarioSeleccionado = null;
       destinoSeleccionado = null;
       origenSeleccionado = null;
@@ -172,9 +190,9 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
   Future<void> guardarVuelta() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (guardias.isEmpty) {
+    if (trabajadores.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Selecciona al menos un guardia")),
+        SnackBar(content: Text("Selecciona al menos un trabajador")),
       );
       return;
     }
@@ -188,18 +206,24 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
     setState(() => loading = true);
 
     try {
-      await _firestore.collection('vueltas').add({
+      await _firestore.collection(_vueltasCollection).add({
         'chofer': _auth.currentUser!.uid,
         'origen': origenSeleccionado,
         'destino': destinoSeleccionado,
         'fechaInicio': fechaInicio,
         'horario': horarioSeleccionado,
-        'guardias': guardias,
+        'trabajadores': trabajadores,
+        'empresa': 'Sodexo',
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      _mostrarDialogoConfirmacion(context, origenSeleccionado!,
-          destinoSeleccionado!, horarioSeleccionado!, fechaInicio!, guardias);
+      _mostrarDialogoConfirmacion(
+          context,
+          origenSeleccionado!,
+          destinoSeleccionado!,
+          horarioSeleccionado!,
+          fechaInicio!,
+          trabajadores);
 
       resetForm();
     } catch (e) {
@@ -267,13 +291,12 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
       // =========================================================
       drawer: CustomDrawer(
         context: context,
-        currentPage:
-            'RegistrarVueltaConchaToro', // Identificador para esta página
+        currentPage: 'AgregarVueltaSodexo', // Identificador para esta página
         primaryColor: primaryColor,
         secondaryColor: secondaryColor,
       ),
       appBar: AppBar(
-        title: Text("Registrar Nueva Vuelta"),
+        title: Text("Registrar Vuelta Sodexo"),
         backgroundColor: primaryColor,
         elevation: 0,
         leading: Builder(
@@ -300,7 +323,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
               children: [
                 SizedBox(height: 8),
 
-                // 1. TARJETA DE DESTINO Y HORARIO
+                // 1. TARJETA DE ORIGEN, DESTINO Y HORARIO
                 _buildFormCard(
                   title: "Origen, Destino y Horario",
                   content: Column(
@@ -385,42 +408,50 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
                   ),
                 ),
 
-                // 3. TARJETA DE SELECCIÓN DE GUARDIAS
+                // 3. TARJETA DE SELECCIÓN DE TRABAJADORES
                 _buildFormCard(
-                  title: "Asignar Guardias (${guardias.length} seleccionados)",
-                  content: loadingGuardias
+                  title:
+                      "Asignar Trabajadores (${trabajadores.length} seleccionados)",
+                  content: loadingTrabajadores
                       ? Center(
                           child: CircularProgressIndicator(color: primaryColor))
-                      : Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: guardiasDisponibles.map((g) {
-                            final selected = guardias.contains(g);
-                            return ChoiceChip(
-                              label: Text(g),
-                              selected: selected,
-                              selectedColor: primaryColor.withOpacity(0.2),
-                              labelStyle: TextStyle(
-                                  color:
-                                      selected ? primaryColor : Colors.black87,
-                                  fontWeight: selected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal),
-                              side: BorderSide(
-                                  color: selected ? primaryColor : Colors.grey,
-                                  width: 1),
-                              onSelected: (val) {
-                                setState(() {
-                                  if (val) {
-                                    guardias.add(g);
-                                  } else {
-                                    guardias.remove(g);
-                                  }
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
+                      : trabajadoresDisponibles.isEmpty
+                          ? Text(
+                              "No hay trabajadores registrados. Agrega trabajadores primero.",
+                              style: TextStyle(color: Colors.grey[600]),
+                            )
+                          : Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: trabajadoresDisponibles.map((t) {
+                                final selected = trabajadores.contains(t);
+                                return ChoiceChip(
+                                  label: Text(t),
+                                  selected: selected,
+                                  selectedColor: primaryColor.withOpacity(0.2),
+                                  labelStyle: TextStyle(
+                                      color: selected
+                                          ? primaryColor
+                                          : Colors.black87,
+                                      fontWeight: selected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal),
+                                  side: BorderSide(
+                                      color:
+                                          selected ? primaryColor : Colors.grey,
+                                      width: 1),
+                                  onSelected: (val) {
+                                    setState(() {
+                                      if (val) {
+                                        trabajadores.add(t);
+                                      } else {
+                                        trabajadores.remove(t);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
                 ),
 
                 SizedBox(height: 10),
@@ -456,7 +487,7 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
                           : ElevatedButton.icon(
                               onPressed: guardarVuelta,
                               icon: Icon(Icons.save),
-                              label: Text("Guardar"),
+                              label: Text("Guardar Vuelta"),
                               style: ElevatedButton.styleFrom(
                                 minimumSize: Size(double.infinity, 55),
                                 textStyle: TextStyle(fontSize: 18),

@@ -6,6 +6,9 @@ import 'saveround_page.dart';
 import 'saveguard_page.dart';
 import 'home_page.dart';
 import 'historial_page.dart';
+import 'savesodexo_page.dart';
+import 'saveroundsodexo_page.dart';
+import 'configuration.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +36,9 @@ class MyApp extends StatelessWidget {
         '/agregarVuelta': (context) => AgregarVueltaPage(),
         '/agregarGuardia': (context) => AgregarGuardiaPage(),
         '/historial': (context) => HistorialVueltaPage(),
+        '/guardarSodexo': (context) => SaveSodexoPage(),
+        '/agregarVueltaSodexo': (context) => SaveRoundSodexoPage(),
+        '/configuracion': (context) => ConfigurationPage(),
       },
     );
   }

@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+// IMPORTACIONES DE TODAS LAS VISTAS
+import 'package:guardtrack_app/saveroundsodexo_page.dart';
+import 'package:guardtrack_app/saveround_page.dart';
+import 'package:guardtrack_app/saveguard_page.dart';
+import 'package:guardtrack_app/historial_page.dart';
+import 'package:guardtrack_app/configuration.dart';
+import 'package:guardtrack_app/home_page.dart';
 // Importación del componente CustomDrawer
 import 'package:guardtrack_app/components/custom_drawer.dart';
 
-class AgregarGuardiaPage extends StatefulWidget {
+class SaveSodexoPage extends StatefulWidget {
   @override
-  _AgregarGuardiaPageState createState() => _AgregarGuardiaPageState();
+  _SaveSodexoPageState createState() => _SaveSodexoPageState();
 }
 
-class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
+class _SaveSodexoPageState extends State<SaveSodexoPage> {
   final _formKey = GlobalKey<FormState>();
   final _nombreController = TextEditingController();
   final _rutController = TextEditingController();
@@ -18,17 +26,22 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
-  // Colección principal para todo el personal (Guardias y Chóferes)
-  static const String _personalCollection = 'personal';
+  // Colección para trabajadores Sodexo
+  static const String _trabajadoresCollection = 'trabajadores_sodexo';
 
   // === COLORES DEL DISEÑO UNIFICADO ===
   final Color primaryColor = const Color.fromARGB(255, 8, 148, 187);
-  final Color secondaryColor = Colors.amber;
+  final Color secondaryColor = Colors.amber.shade700;
   final Color backgroundColor = Colors.blueGrey[50]!;
   final Color deleteColor = Colors.red.shade700;
   final Color copyColor = Colors.green.shade700;
 
   bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -41,7 +54,6 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
   // === FUNCIÓN PARA COPIAR TELÉFONO ===
   Future<void> _copiarTelefono(String telefono) async {
     await Clipboard.setData(ClipboardData(text: telefono));
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("Teléfono '$telefono' copiado al portapapeles"),
@@ -53,25 +65,28 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
   // === MÉTODO PARA IR AL HOME ===
   void goToHome() {
     Navigator.pop(context);
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => HomePage()),
+    );
   }
 
-  // === FUNCIÓN PARA GUARDAR GUARDIA (Ahora Personal) ===
-  Future<void> guardarGuardia() async {
+  // === FUNCIÓN PARA GUARDAR TRABAJADOR SODEXO ===
+  Future<void> guardarTrabajador() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => loading = true);
     try {
-      await _firestore.collection(_personalCollection).add({
+      await _firestore.collection(_trabajadoresCollection).add({
         'nombre': _nombreController.text.trim(),
         'rut': _rutController.text.trim(),
         'telefono': _telefonoController.text.trim(),
-        'rol': 'Guardia',
+        'empresa': 'Sodexo',
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Guardia agregado correctamente")),
+        SnackBar(content: Text("Trabajador Sodexo agregado correctamente")),
       );
 
       _nombreController.clear();
@@ -86,13 +101,13 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     }
   }
 
-  // === FUNCIÓN PARA ELIMINAR GUARDIA (Ahora Personal) ===
-  Future<void> eliminarGuardia(String id) async {
+  // === FUNCIÓN PARA ELIMINAR TRABAJADOR ===
+  Future<void> eliminarTrabajador(String id) async {
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text("Confirmar Eliminación"),
-        content: Text("¿Estás seguro de que quieres eliminar este guardia?"),
+        content: Text("¿Estás seguro de que quieres eliminar este trabajador?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -109,9 +124,9 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
 
     if (confirm == true) {
       try {
-        await _firestore.collection(_personalCollection).doc(id).delete();
+        await _firestore.collection(_trabajadoresCollection).doc(id).delete();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Guardia eliminado")),
+          SnackBar(content: Text("Trabajador eliminado")),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -121,9 +136,13 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
     }
   }
 
-  // === FUNCIÓN PARA EDITAR GUARDIA (Ahora Personal) ===
-  Future<void> editarGuardia(String id, String nombreActual, String rutActual,
-      String telefonoActual) async {
+  // === FUNCIÓN PARA EDITAR TRABAJADOR ===
+  Future<void> editarTrabajador(
+    String id,
+    String nombreActual,
+    String rutActual,
+    String telefonoActual,
+  ) async {
     final _editNombreController = TextEditingController(text: nombreActual);
     final _editRutController = TextEditingController(text: rutActual);
     final _editTelefonoController = TextEditingController(text: telefonoActual);
@@ -142,7 +161,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text("Editar Guardia",
+        title: Text("Editar Trabajador Sodexo",
             style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
         content: Form(
           key: _editFormKey,
@@ -158,15 +177,15 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                   validator: (val) => val!.isEmpty ? "Ingresa el nombre" : null,
                 ),
                 SizedBox(height: 16),
-                // CAMPO RUT
+                // CAMPO RUT (OPCIONAL)
                 TextFormField(
                   controller: _editRutController,
                   keyboardType: TextInputType.text,
-                  decoration: dialogInputDecoration.copyWith(labelText: "RUT"),
-                  validator: (val) => val!.isEmpty ? "Ingresa el RUT" : null,
+                  decoration: dialogInputDecoration.copyWith(
+                      labelText: "RUT (Opcional)"),
                 ),
                 SizedBox(height: 16),
-                // CAMPO TELÉFONO
+                // CAMPO TELÉFONO (OPCIONAL)
                 TextFormField(
                   controller: _editTelefonoController,
                   keyboardType: TextInputType.phone,
@@ -187,7 +206,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
               if (!_editFormKey.currentState!.validate()) return;
               try {
                 await _firestore
-                    .collection(_personalCollection)
+                    .collection(_trabajadoresCollection)
                     .doc(id)
                     .update({
                   'nombre': _editNombreController.text.trim(),
@@ -196,7 +215,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                   'timestamp': FieldValue.serverTimestamp(),
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Guardia actualizado")),
+                  SnackBar(content: Text("Trabajador actualizado")),
                 );
                 Navigator.pop(context);
               } catch (e) {
@@ -228,7 +247,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Registrar Nuevo Guardia",
+                "Registrar Nuevo Trabajador Sodexo",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -237,11 +256,11 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
               ),
               Divider(color: Colors.grey[300]),
               SizedBox(height: 16),
-              // CAMPO NOMBRE
+              // CAMPO NOMBRE (OBLIGATORIO)
               TextFormField(
                 controller: _nombreController,
                 decoration: inputDecoration.copyWith(
-                  labelText: "Nombre del Guardia",
+                  labelText: "Nombre Completo",
                   prefixIcon:
                       Icon(Icons.person, color: primaryColor.withOpacity(0.7)),
                 ),
@@ -249,19 +268,18 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                     value!.isEmpty ? "Ingresa el nombre" : null,
               ),
               SizedBox(height: 16),
-              // CAMPO RUT
+              // CAMPO RUT (OPCIONAL)
               TextFormField(
                 controller: _rutController,
                 keyboardType: TextInputType.text,
                 decoration: inputDecoration.copyWith(
-                  labelText: "RUT",
+                  labelText: "RUT (Opcional)",
                   prefixIcon:
                       Icon(Icons.badge, color: primaryColor.withOpacity(0.7)),
                 ),
-                validator: (value) => value!.isEmpty ? "Ingresa el RUT" : null,
               ),
               SizedBox(height: 16),
-              // CAMPO TELÉFONO
+              // CAMPO TELÉFONO (OPCIONAL)
               TextFormField(
                 controller: _telefonoController,
                 keyboardType: TextInputType.phone,
@@ -276,9 +294,9 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                   ? Center(
                       child: CircularProgressIndicator(color: primaryColor))
                   : ElevatedButton.icon(
-                      onPressed: guardarGuardia,
+                      onPressed: guardarTrabajador,
                       icon: Icon(Icons.add),
-                      label: Text("Añadir Guardia"),
+                      label: Text("Añadir Trabajador"),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 55),
                         textStyle: TextStyle(fontSize: 18),
@@ -320,12 +338,12 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
       drawer: CustomDrawer(
         context: context,
         currentPage:
-            'AgregarGuardiaConchaToro', // Identificador para esta página
+            'AgregarTrabajadorSodexo', // Identificador para esta página
         primaryColor: primaryColor,
         secondaryColor: secondaryColor,
       ),
       appBar: AppBar(
-        title: Text("Agregar/Gestionar Guardia"),
+        title: Text("Agregar/Gestionar Trabajadores Sodexo"),
         backgroundColor: primaryColor,
         elevation: 0,
         leading: Builder(
@@ -355,7 +373,7 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                 alignment: Alignment.centerLeft,
                 margin: EdgeInsets.only(bottom: 10),
                 child: Text(
-                  "Guardias Registrados",
+                  "Trabajadores Sodexo Registrados",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -364,10 +382,10 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                 ),
               ),
 
-              // LISTA DE GUARDIAS (StreamBuilder)
+              // LISTA DE TRABAJADORES (StreamBuilder)
               StreamBuilder<QuerySnapshot>(
                 stream: _firestore
-                    .collection(_personalCollection)
+                    .collection(_trabajadoresCollection)
                     .orderBy('timestamp', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -375,24 +393,24 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                     return Center(
                         child: CircularProgressIndicator(color: primaryColor));
 
-                  final guardias = snapshot.data!.docs;
+                  final trabajadores = snapshot.data!.docs;
 
-                  if (guardias.isEmpty)
+                  if (trabajadores.isEmpty)
                     return Padding(
                       padding: const EdgeInsets.only(top: 20),
                       child: Text(
-                          "No hay guardias registrados. ¡Añade uno primero!",
+                          "No hay trabajadores registrados. ¡Añade uno primero!",
                           style: TextStyle(color: Colors.grey[700])),
                     );
 
                   return ListView.builder(
                     shrinkWrap: true,
                     physics: NeverScrollableScrollPhysics(),
-                    itemCount: guardias.length,
+                    itemCount: trabajadores.length,
                     itemBuilder: (context, index) {
-                      final g = guardias[index];
-                      final telefono = g['telefono'] ?? "";
-                      final rut = g['rut'] ?? "N/A";
+                      final t = trabajadores[index];
+                      final telefono = t['telefono'] ?? "";
+                      final rut = t['rut'] ?? "";
 
                       return Card(
                         elevation: 2,
@@ -407,12 +425,12 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold)),
                           ),
-                          title: Text(g['nombre'],
+                          title: Text(t['nombre'],
                               style: TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("RUT: $rut"),
+                              if (rut.isNotEmpty) Text("RUT: $rut"),
                               Text(
                                   "Teléfono: ${telefono.isEmpty ? 'N/A' : telefono}"),
                             ],
@@ -420,21 +438,22 @@ class _AgregarGuardiaPageState extends State<AgregarGuardiaPage> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // BOTÓN DE COPIAR
-                              IconButton(
-                                icon: Icon(Icons.copy, color: copyColor),
-                                onPressed: () => _copiarTelefono(telefono),
-                                tooltip: "Copiar teléfono",
-                              ),
+                              // BOTÓN DE COPIAR (solo si hay teléfono)
+                              if (telefono.isNotEmpty)
+                                IconButton(
+                                  icon: Icon(Icons.copy, color: copyColor),
+                                  onPressed: () => _copiarTelefono(telefono),
+                                  tooltip: "Copiar teléfono",
+                                ),
                               IconButton(
                                 icon: Icon(Icons.edit, color: primaryColor),
-                                onPressed: () => editarGuardia(
-                                    g.id, g['nombre'], rut, telefono),
+                                onPressed: () => editarTrabajador(
+                                    t.id, t['nombre'], rut, telefono),
                                 tooltip: "Editar",
                               ),
                               IconButton(
                                 icon: Icon(Icons.delete, color: deleteColor),
-                                onPressed: () => eliminarGuardia(g.id),
+                                onPressed: () => eliminarTrabajador(t.id),
                                 tooltip: "Eliminar",
                               ),
                             ],
