@@ -30,15 +30,16 @@ Pensada para **empresas de seguridad privada** que gestionan múltiples clientes
 ## 🏗️ Estructura del Proyecto
 lib/
 ├── components/
-│ └── custom_drawer.dart # Drawer reutilizable
-├── home_page.dart # Dashboard principal
-├── saveround_page.dart # Vuelta Concha y Toro
-├── saveguard_page.dart # Gestión de Guardias
-├── historial_page.dart # Historial Concha y Toro
-├── saveroundsodexo_page.dart # Vuelta Sodexo
-├── savesodexo_page.dart # Gestión de Trabajadores Sodexo
-├── historialsodexo_page.dart # Historial Sodexo
-└── configuration.dart # Configuración general
+│   └── custom_drawer.dart      # Drawer reutilizable
+├── home_page.dart              # Dashboard principal
+├── saveround_page.dart         # Vuelta Concha y Toro
+├── saveguard_page.dart         # Gestión de Guardias
+├── historial_page.dart         # Historial Concha y Toro
+├── saveroundsodexo_page.dart   # Vuelta Sodexo
+├── savesodexo_page.dart        # Gestión de Trabajadores Sodexo
+├── historialsodexo_page.dart   # Historial Sodexo
+└── configuration.dart          # Configuración general
+
 
 ---
 
