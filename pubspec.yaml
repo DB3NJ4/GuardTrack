@@ -12,11 +12,31 @@ dependencies:
   firebase_core: ^4.1.1
   firebase_auth: ^6.1.0
   cloud_firestore: ^6.0.2
+  flutter_native_splash: ^2.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1   
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/splash/guardtracklogo.png
+    - assets/splash/guardtracklogo.png      
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/splash/guardtracklogo.png
+  android: true
+  ios: true
+  android_12:
+    image: assets/splash/guardtracklogo.png
+    color: "#ffffff"
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/splash/guardtracklogo.png" 
+  min_sdk_android: 21

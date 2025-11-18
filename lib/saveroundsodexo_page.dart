@@ -41,17 +41,9 @@ class _SaveRoundSodexoPageState extends State<SaveRoundSodexoPage> {
   bool loading = false;
   bool loadingTrabajadores = true;
 
-  final List<String> horariosDisponibles = [
-    '08:00 a 16:00',
-    '16:00 a 00:00',
-    '08:00 a 18:00',
-    '00:00 a 08:00',
-  ];
+  final List<String> horariosDisponibles = ['14:00', '00:00'];
 
-  final List<String> destinoDisponibles = [
-    'Bodega Lourdes',
-    'Centro de Investigacion'
-  ];
+  final List<String> destinoDisponibles = ['Bodega Lourdes', 'Domiciio'];
 
   final List<String> origenDisponibles = ['Talca', 'Pencahue', 'Figueroa'];
 
@@ -136,7 +128,7 @@ class _SaveRoundSodexoPageState extends State<SaveRoundSodexoPage> {
             children: [
               Icon(Icons.check_circle, color: primaryColor, size: 30),
               SizedBox(width: 10),
-              Text("¡Vuelta Sodexo Registrada!"),
+              Text("¡Vuelta Registrada!"),
             ],
           ),
           content: SingleChildScrollView(

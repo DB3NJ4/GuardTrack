@@ -36,8 +36,9 @@ class _AgregarVueltaPageState extends State<AgregarVueltaPage> {
   final List<String> horariosDisponibles = [
     '08:00 a 16:00',
     '16:00 a 00:00',
-    '08:00 a 18:00',
     '00:00 a 08:00',
+    '08:00 a 14:30',
+    '08:00 a 18:00',
   ];
 
   final List<String> destinoDisponibles = [
